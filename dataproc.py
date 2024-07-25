@@ -35,30 +35,35 @@ def preprocess_recording(
     pass
 
 
-def get_waveform_extractor(
+def get_sorting_analyzer(
     recording: si.core.BaseRecording,
     sorting: si.core.BaseSorting,
     job_kwargs: Optional[Dict] = {},
-) -> si.core.WaveformExtractor:
+) -> si.core.SortingAnalyzer:
     # data_path might break when loading a preprocessed recording due to
     # different file naming compared to the original recording.
-    data_path = Path(recording._kwargs["file_path"])
+    data_path = Path(recording._kwargs["folder_path"])
     wf_folder = Path(f"waveforms/{data_path.stem}")
     if recording.is_filtered():
         wf_folder = wf_folder / "filtered"
     else:
         wf_folder = wf_folder / "raw"
     if wf_folder.exists():
-        we = si.load_waveforms(wf_folder)
+        sa = si.load_sorting_analyzer(wf_folder)
     else:
-        we = si.extract_waveforms(
+        sa = si.create_sorting_analyzer(
             recording=recording,
             sorting=sorting,
-            folder=wf_folder,
-            overwrite=False,
             **job_kwargs,
         )
-    return we
+        sa.compute("random_spikes")
+        sa.compute("waveforms")
+        sa.compute("templates")
+        sa.compute("noise_levels")
+        sa.save_as(
+            folder=wf_folder,
+        )
+    return sa
 
 
 def compute_snrs_per_unit_group(
@@ -69,15 +74,14 @@ def compute_snrs_per_unit_group(
 ) -> Dict[int, Tuple[List[int], float]]:
     # returns a dict with keys as extremum channels and values as tuples of
     # list of unit inds and their mean snr
-    we = get_waveform_extractor(
+    sa = get_sorting_analyzer(
         recording=recording, sorting=sorting, job_kwargs=job_kwargs
     )
 
-    snrs_per_unit = qm.compute_snrs(we)
+    snrs_per_unit = qm.compute_snrs(sa)
     # convert keys of snrs from id to integer index (from 0)
     snrs_per_unit = {
-        np.where(sorting.get_unit_ids() == k)[0][0]: v
-        for k, v in snrs_per_unit.items()
+        np.where(sorting.get_unit_ids() == k)[0][0]: v for k, v in snrs_per_unit.items()
     }
 
     snrs_per_unit_group = {}
@@ -95,12 +99,12 @@ def compute_extremum_channels(
     sorting: si.core.BaseSorting,
     job_kwargs: Optional[Dict] = {},
 ) -> Dict[int, List[int]]:
-    we = get_waveform_extractor(
+    sa = get_sorting_analyzer(
         recording=recording, sorting=sorting, job_kwargs=job_kwargs
     )
 
     extremum_channels_inds = si.core.get_template_extremum_channel(
-        waveform_extractor=we, peak_sign="neg", outputs="index"
+        sa, peak_sign="neg", outputs="index"
     )
 
     unique_extremum_chs = np.unique(list(extremum_channels_inds.values()))
@@ -130,9 +134,7 @@ def merge_units_by_extremum_ch(
     sorting_gt_groups = {}
     for ch, unit_inds in extr_ch_to_units_inds.items():
         gt_units_spike_train = [
-            sorting.get_unit_spike_train(
-                unit_id=sorting.get_unit_ids()[unit_ind]
-            )
+            sorting.get_unit_spike_train(unit_id=sorting.get_unit_ids()[unit_ind])
             for unit_ind in unit_inds
         ]
         merged_units = np.concatenate(gt_units_spike_train)

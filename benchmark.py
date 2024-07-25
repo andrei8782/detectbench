@@ -57,9 +57,7 @@ def get_benchmark_file_path(
     return file_path
 
 
-def get_channels_in_radius(
-    probe, radius: float, ch_ind: float
-) -> Dict[int, float]:
+def get_channels_in_radius(probe, radius: float, ch_ind: float) -> Dict[int, float]:
     ch_locs = np.array(probe.contact_positions)
     target_loc = ch_locs[ch_ind]
 
@@ -67,7 +65,7 @@ def get_channels_in_radius(
     squared_distances = np.sum((ch_locs - target_loc) ** 2, axis=1)
 
     # Find channels within the specified radius
-    within_radius = np.where(squared_distances <= radius ** 2)[0]
+    within_radius = np.where(squared_distances <= radius**2)[0]
 
     # Calculate actual distances for channels within the radius
     distances = np.sqrt(squared_distances[within_radius])
@@ -95,11 +93,6 @@ def run_benchmark(
     overwrite: Optional[bool] = False,
     snr_per_unit_group: Optional[Dict[int, Tuple[List[int], float]]] = None,
 ) -> Dict[str, float]:
-    supported_detections = [detect_peaks]
-    if detection_method not in supported_detections:
-        raise ValueError(
-            f"Detection method {detection_method} not supported. Available methods: {supported_detections}"
-        )
 
     if search_radius is None or search_jitter is None:
         raise NotImplementedError(
@@ -111,7 +104,7 @@ def run_benchmark(
             raise ValueError(
                 "If load_if_exists is True, folder_path must be specified."
             )
-        recording_name = Path(recording._kwargs["file_path"]).stem
+        recording_name = Path(recording._kwargs["folder_path"]).stem
         file_name = get_benchmark_file_path(
             recording_name,
             detection_method.__name__,
@@ -135,10 +128,7 @@ def run_benchmark(
 
     sampling_frequency = recording.get_sampling_frequency()
     _gt_peaks = sum(
-        [
-            len(extr_ch_to_units_trains[unit])
-            for unit in extr_ch_to_units_trains.keys()
-        ]
+        [len(extr_ch_to_units_trains[unit]) for unit in extr_ch_to_units_trains.keys()]
     )
     _total_gt_peaks = _gt_peaks
     if progress_bar:
@@ -185,7 +175,7 @@ def run_benchmark(
         ch_inds = list(chs.keys())
         peaks_chs_filter = np.isin(peaks["channel_index"], ch_inds)
         peaks_subset = peaks[peaks_chs_filter]
-        detected_peaks_t = peaks_subset["sample_ind"] / sampling_frequency
+        detected_peaks_t = peaks_subset["sample_index"] / sampling_frequency
         detected_peaks_ch = peaks_subset["channel_index"]
         detected_peaks_inds = np.where(peaks_chs_filter)[0]
         for gt_peak_t in gt_peaks_t:
@@ -203,13 +193,10 @@ def run_benchmark(
                     detected_peaks_ch[within_jitter] == matched_ch
                 )
                 ch_filtered_dt = dt[within_jitter][matched_ch_filter]
-                dt_min_inds = np.where(
-                    dt[within_jitter] == np.min(ch_filtered_dt)
-                )
+                dt_min_inds = np.where(dt[within_jitter] == np.min(ch_filtered_dt))
                 dt_min_inds_ch_filtered = dt_min_inds[0][
                     np.where(
-                        detected_peaks_ch[within_jitter][dt_min_inds]
-                        == matched_ch
+                        detected_peaks_ch[within_jitter][dt_min_inds] == matched_ch
                     )
                 ]
                 if dt_min_inds_ch_filtered.size > 1:
@@ -220,7 +207,7 @@ def run_benchmark(
                         break
                 assert detected_peaks_ch[dt_min_ind] == matched_ch
                 assert (
-                    peaks["sample_ind"][detected_peaks_inds[dt_min_ind]]
+                    peaks["sample_index"][detected_peaks_inds[dt_min_ind]]
                     / recording.get_sampling_frequency()
                     == detected_peaks_t[dt_min_ind]
                 )
@@ -242,13 +229,11 @@ def run_benchmark(
         )
         group_precision[extremum_ch] = safe_divide(
             group_matched_gt_peaks,
-            group_matched_gt_peaks
-            + (peaks_subset.size - group_matched_detected_peaks),
+            group_matched_gt_peaks + (peaks_subset.size - group_matched_detected_peaks),
         )
         group_accuracy[extremum_ch] = safe_divide(
             group_matched_gt_peaks,
-            len(gt_units_group)
-            + (peaks_subset.size - group_matched_detected_peaks),
+            len(gt_units_group) + (peaks_subset.size - group_matched_detected_peaks),
         )
 
         if snr_per_unit_group:
@@ -297,10 +282,8 @@ recall:    {recall:.2f}
 
     if save_on_disk:
         if folder_path is None:
-            raise ValueError(
-                "folder_path must be specified if save_on_disk is True"
-            )
-        recording_name = Path(recording._kwargs["file_path"]).stem
+            raise ValueError("folder_path must be specified if save_on_disk is True")
+        recording_name = Path(recording._kwargs["folder_path"]).stem
         file_name = get_benchmark_file_path(
             recording_name,
             detection_method.__name__,
@@ -316,9 +299,7 @@ recall:    {recall:.2f}
             if verbose:
                 print(f"Saving benchmark results to {file_path}")
         elif file_path.exists() and not overwrite:
-            raise FileExistsError(
-                f"Benchmark results already exist at {file_path}"
-            )
+            raise FileExistsError(f"Benchmark results already exist at {file_path}")
         if not file_path.parent.is_dir():
             os.makedirs(file_path.parent, exist_ok=True)
         np.save(file_path, benchmarking_log)

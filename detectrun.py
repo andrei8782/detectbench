@@ -7,7 +7,7 @@ from typing import Callable, Dict, Optional
 import numpy as np
 import spikeinterface as si
 from numpy.typing import NDArray
-from spikeinterface.sortingcomponents.peak_pipeline import base_peak_dtype
+from spikeinterface.core.node_pipeline import base_peak_dtype
 
 
 def validate_detection_config(detection_config_kwargs: Dict) -> bool:
@@ -25,9 +25,7 @@ def validate_detection_config(detection_config_kwargs: Dict) -> bool:
 
 
 def filter_ndarray_values(dictionary):
-    return {
-        k: v for k, v in dictionary.items() if not isinstance(v, np.ndarray)
-    }
+    return {k: v for k, v in dictionary.items() if not isinstance(v, np.ndarray)}
 
 
 def get_detection_file_path(
@@ -62,7 +60,7 @@ def run_detection(
         if folder_path is None:
             raise ValueError("Please provide a folder path.")
         else:
-            recording_name = Path(recording._kwargs["file_path"]).stem
+            recording_name = Path(recording._kwargs["folder_path"]).stem
             file_name = get_detection_file_path(
                 recording_name, detection_method_name, detection_kwargs
             )
@@ -79,9 +77,7 @@ def run_detection(
                     print(f"Detection results not found at {file_path}")
 
     if detection_method_name == "detect_peaks":
-        peaks = detection_method(
-            recording=recording, **detection_kwargs, **job_kwargs
-        )
+        peaks = detection_method(recording=recording, **detection_kwargs, **job_kwargs)
     else:
         peaks = detection_method(recording, **detection_kwargs)
 
@@ -92,7 +88,7 @@ def run_detection(
         if folder_path is None:
             raise ValueError("Please provide a folder path.")
         else:
-            recording_name = Path(recording._kwargs["file_path"]).stem
+            recording_name = Path(recording._kwargs["folder_path"]).stem
             file_name = get_detection_file_path(
                 recording_name, detection_method_name, detection_kwargs
             )
@@ -104,9 +100,7 @@ def run_detection(
                 if verbose:
                     print(f"Saving detection results to {file_path}")
             elif file_path.exists() and not overwrite:
-                raise FileExistsError(
-                    f"Detection results already exist at {file_path}"
-                )
+                raise FileExistsError(f"Detection results already exist at {file_path}")
             if not file_path.parent.is_dir():
                 os.makedirs(file_path.parent, exist_ok=True)
             np.save(file_path, peaks)
